@@ -1,7 +1,6 @@
 // pages/api/analyze.js
 
 export default async function handler(req, res) {
-  // On n'accepte que le POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
@@ -11,9 +10,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "tickers et month sont requis" });
   }
 
-  // Backend Python sur ton VPS
+  // ton VPS Python
   const BACKEND_URL =
-    process.env.DATA_BACKEND_URL || "http://38.242.151.39:8000/analyze";
+    process.env.DATA_BACKEND_URL || "http://84.46.253.225:8000/analyze";
 
   try {
     const resp = await fetch(BACKEND_URL, {
