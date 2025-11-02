@@ -1,247 +1,119 @@
+// pages/index.js
 import { useState } from "react";
+import DCAResult from "../components/DCAResult";
 
-const MONTHS_FR = [
-  { label: "Janvier", value: "janvier" },
-  { label: "Février", value: "février" },
-  { label: "Mars", value: "mars" },
-  { label: "Avril", value: "avril" },
-  { label: "Mai", value: "mai" },
-  { label: "Juin", value: "juin" },
-  { label: "Juillet", value: "juillet" },
-  { label: "Août", value: "août" },
-  { label: "Septembre", value: "septembre" },
-  { label: "Octobre", value: "octobre" },
-  { label: "Novembre", value: "novembre" },
-  { label: "Décembre", value: "décembre" }
+const MONTHS = [
+  { value: "janvier", label: "Janvier" },
+  { value: "février", label: "Février" },
+  { value: "mars", label: "Mars" },
+  { value: "avril", label: "Avril" },
+  { value: "mai", label: "Mai" },
+  { value: "juin", label: "Juin" },
+  { value: "juillet", label: "Juillet" },
+  { value: "août", label: "Août" },
+  { value: "septembre", label: "Septembre" },
+  { value: "octobre", label: "Octobre" },
+  { value: "novembre", label: "Novembre" },
+  { value: "décembre", label: "Décembre" },
 ];
 
 export default function Home() {
   const [tickers, setTickers] = useState("UST.PA, AAPL");
   const [month, setMonth] = useState("novembre");
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
-  async function handleSubmit(e) {
+  const handleAnalyze = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setResult(null);
-
+    setData(null);
     try {
-      const res = await fetch("/api/analyze", {
+      const resp = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tickers,
-          month
-        })
+        body: JSON.stringify({ tickers, month }),
       });
-
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Erreur API");
+      const json = await resp.json();
+      if (!resp.ok) {
+        setError(json?.error || "Erreur API");
+      } else {
+        setData(json);
       }
-
-      const data = await res.json();
-      setResult(data);
     } catch (err) {
-      setError(err.message || "Erreur");
+      setError("Impossible d'appeler l'API.");
     } finally {
       setLoading(false);
     }
-  }
-
-  const handleExportCSV = () => {
-    if (!result) return;
-    const rows = [];
-
-    result.results.forEach((t) => {
-      t.perYear.forEach((yearEntry) => {
-        yearEntry.lows.forEach((low) => {
-          rows.push({
-            ticker: t.ticker,
-            year: yearEntry.year,
-            date: low.date,
-            price: low.price
-          });
-        });
-      });
-    });
-
-    const header = "ticker,year,date,price\n";
-    const csv =
-      header +
-      rows
-        .map((r) => `${r.ticker},${r.year},${r.date},${r.price}`)
-        .join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "dca-analysis.csv";
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="page-bg">
-      <div className="page-container">
-        <div className="panel panel-light">
-          <div className="panel-header">
-            <div>
-              <h1 className="title">Analyse DCA mensuelle</h1>
-              <p className="subtitle">
-                10 ans · plusieurs tickers · meilleurs jours du mois
-              </p>
-            </div>
-            {result && (
-              <button onClick={handleExportCSV} className="ghost-btn">
-                Export CSV
-              </button>
-            )}
+    <div className="page-shell">
+      <div className="hero">
+        <h1>Analyse DCA mensuelle</h1>
+        <p>10 ans · plusieurs tickers · meilleurs jours du mois</p>
+      </div>
+
+      <div className="panel">
+        <form onSubmit={handleAnalyze} className="form-grid">
+          <div className="field">
+            <label htmlFor="tickers">Tickers</label>
+            <input
+              id="tickers"
+              type="text"
+              value={tickers}
+              onChange={(e) => setTickers(e.target.value)}
+              placeholder="UST.PA, AAPL, QQQ..."
+              autoComplete="off"
+            />
+            <span className="field-hint">Séparer par des virgules</span>
           </div>
 
-          <form onSubmit={handleSubmit} className="form-row">
-            <div className="field">
-              <label className="label">Tickers</label>
-              <input
-                value={tickers}
-                onChange={(e) => setTickers(e.target.value)}
-                className="input"
-                placeholder="UST.PA, AAPL, QQQ..."
-              />
-              <p className="help">Séparer par des virgules</p>
-            </div>
-
-            <div className="field field-month">
-              <label className="label">Mois</label>
-              <div className="select-wrapper">
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  className="select"
-                >
-                  {MONTHS_FR.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="select-caret">▼</span>
-              </div>
-            </div>
-
-            <div className="field-btn">
-              <button type="submit" disabled={loading} className="primary-btn">
-                {loading ? (
-                  <span className="btn-with-spinner">
-                    <span className="spinner" /> Analyse...
-                  </span>
-                ) : (
-                  "Analyser"
-                )}
-              </button>
-            </div>
-          </form>
-
-          {error && <div className="error-box">{error}</div>}
-
-          {loading && !result && (
-            <div className="loading-box">
-              <div className="spinner-big" />
-            </div>
-          )}
-
-          {result && (
-            <div className="results">
-              {result.results.map((tickerResult) => (
-                <div key={tickerResult.ticker} className="result-card">
-                  <div className="result-head">
-                    <div>
-                      <h2 className="result-title">{tickerResult.ticker}</h2>
-                      <p className="result-meta">
-                        Mois : {result.month} · Années :{" "}
-                        {tickerResult.years && tickerResult.years.length
-                          ? tickerResult.years.join(", ")
-                          : "—"}
-                      </p>
-                    </div>
-                    {tickerResult.bestDays?.length ? (
-                      <p className="badge-success">
-                        ✅ Meilleur moment :{" "}
-                        {tickerResult.bestDays.join(", ")} du mois
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="table-wrapper">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Année</th>
-                          <th>4 plus bas</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tickerResult.perYear.map((y) => (
-                          <tr key={y.year}>
-                            <td>{y.year}</td>
-                            <td>
-                              {y.lows.length === 0 ? (
-                                <span className="muted">(pas de données)</span>
-                              ) : (
-                                <ul className="low-list">
-                                  {y.lows.map((l) => (
-                                    <li key={l.date}>
-                                      <span className="low-date">
-                                        {l.date}
-                                      </span>
-                                      <span className="low-price">
-                                        → {l.price.toFixed(2)}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {tickerResult.freqDays?.sorted?.length ? (
-                    <div className="freq-block">
-                      <p className="freq-title">
-                        Jours les plus fréquemment bas
-                      </p>
-                      <div className="freq-tags">
-                        {tickerResult.freqDays.sorted.map((d) => (
-                          <span
-                            key={d.day}
-                            className={
-                              d.isBest ? "tag tag-best" : "tag tag-default"
-                            }
-                          >
-                            Jour {d.day} · {d.count}×
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+          <div className="field">
+            <label htmlFor="month">Mois</label>
+            <select
+              id="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            >
+              {MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
               ))}
-            </div>
-          )}
+            </select>
+          </div>
 
-          {!loading && !result && !error && (
-            <p className="empty-hint">
-              Saisis tes tickers, choisis un mois et lance une analyse.
-            </p>
-          )}
-        </div>
+          <div className="actions">
+            <button type="submit" disabled={loading}>
+              {loading ? "Analyse..." : "Analyser"}
+            </button>
+          </div>
+        </form>
+
+        {error ? <p className="error">{error}</p> : null}
+
+        {loading ? <div className="loading">⏳ Récupération des données…</div> : null}
+
+        {data ? <DCAResult data={data} /> : null}
+
+        {!data && !loading && !error ? (
+          <p className="helper">
+            Saisis tes tickers, choisis un mois et lance une analyse.
+            <br />
+            🔎 Tu peux trouver des tickers ici :{" "}
+            <a
+              href="https://fr.finance.yahoo.com/research-hub/screener/etf"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Yahoo Finance – Screener ETF
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );
 }
+
